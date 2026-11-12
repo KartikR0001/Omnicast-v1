@@ -20,4 +20,4 @@ storage/
 
 # ...except the small demo clips in samples/
 !samples/
-!samples/*
+!samples/**

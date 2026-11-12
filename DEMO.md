@@ -54,6 +54,8 @@ HF_HUB_OFFLINE=1 uv run python cli.py run samples/short_satellite_7s.wav --tgt h
 uv run python cli.py show <project_id printed above>
 ```
 
+**More test files:** `samples/demo_set/` has 12 valid clips (4 s to 2 min, WAV/FLAC/MP3/M4A, numbers, names, several speakers) and 4 invalid files, plus `demo_set.csv` with the reference English, Hindi and French. See `samples/demo_set/README.md` for a suggested order.
+
 ## 5. Questions the guide may ask
 
 - **Why two ASR models?** Whisper does the transcription; MMS-CTC (a different family) checks the output, so the system does not grade itself.
