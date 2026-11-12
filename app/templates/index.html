@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OMNICAST — AI Audio Localization & Quality Repair Studio</title>
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-badge">OMNICAST</span>
+        <div>
+          <h1>Multilingual Audio Production &amp; Selective Repair Studio</h1>
+          <p class="subtitle">Phase-1 System &bull; Module-1 Media Pipeline + Module-2 Verified Selective Repair (Policy v0)</p>
+        </div>
+      </div>
+      <div class="system-pills">
+        <span class="pill pill-model">ASR: Whisper-large-v3-turbo (MLX)</span>
+        <span class="pill pill-model">MT: NLLB-200-distilled-600M</span>
+        <span class="pill pill-model">Eval: MMS-1B-all CTC</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="grid-two">
+      <!-- Upload Card -->
+      <div class="card" id="upload-card">
+        <div class="card-header">
+          <h2>New Dubbing &amp; Repair Job</h2>
+          <span class="badge">R1 &bull; R9 &bull; R10</span>
+        </div>
+        <p class="card-desc">
+          Upload a source media file (WAV, MP3, FLAC, M4A; max 200 MB / 60 min).
+          Magic-byte, ffprobe, and stream decode validation run synchronously before queuing.
+        </p>
+
+        <div id="upload-alert" class="alert hidden" role="alert"></div>
+
+        <form id="upload-form" enctype="multipart/form-data">
+          <div class="form-group">
+            <label for="file-input">Source Media File</label>
+            <input type="file" id="file-input" name="file" accept=".wav,.mp3,.flac,.m4a" required />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="target-lang">Target Language</label>
+              <select id="target-lang" name="target_lang">
+                <option value="hi">Hindi (hi &bull; Devanagari)</option>
+                <option value="fr">French (fr &bull; Latin)</option>
+                <option value="de">German (de &bull; Latin)</option>
+                <option value="es">Spanish (es &bull; Latin)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="tts-provider">TTS Synthesis Engine</label>
+              <select id="tts-provider" name="tts_provider">
+                <option value="mms_tts">MMS-TTS VITS (Fast Local Batch)</option>
+                <option value="chatterbox">Chatterbox Multilingual (Voice Cloning)</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" id="submit-btn" class="btn btn-primary">
+            Validate &amp; Start Pipeline Job
+          </button>
+        </form>
+      </div>
+
+      <!-- Active Job Status / Architecture Summary Card -->
+      <div class="card" id="job-monitor-card">
+        <div class="card-header">
+          <h2>Live Job Monitor &amp; Quality Gate Thresholds</h2>
+          <span class="badge">Module-1 + Module-2</span>
+        </div>
+
+        <div id="active-job-banner" class="job-banner hidden">
+          <div class="job-banner-top">
+            <strong id="active-job-title">Job Queued...</strong>
+            <span id="active-job-stage" class="status-badge status-RUNNING">QUEUED</span>
+          </div>
+          <div class="progress-bar-wrap">
+            <div id="active-job-bar" class="progress-bar-fill" style="width: 15%;"></div>
+          </div>
+          <p id="active-job-detail" class="job-banner-sub">Waiting for background worker...</p>
+        </div>
+
+        <div class="gate-summary">
+          <h3>Module-2 Defect Detectors (Rule-Based Policy v0)</h3>
+          <table class="compact-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Flag</th>
+                <th>Threshold (`config/quality.yaml`)</th>
+                <th>Primary Repair Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>D1</code></td>
+                <td><code>content</code></td>
+                <td>Held-out MMS-1B CTC <code>CER &gt; 0.35</code></td>
+                <td><code>REGENERATE_TTS</code> (new seed + rate)</td>
+              </tr>
+              <tr>
+                <td><code>D2</code></td>
+                <td><code>timing</code></td>
+                <td>Duration ratio <code>&notin; [0.45, 2.20]</code></td>
+                <td><code>REGENERATE_TTS</code></td>
+              </tr>
+              <tr>
+                <td><code>D3</code></td>
+                <td><code>acoustic</code></td>
+                <td><code>clip &gt; 0.01</code> or <code>sil &gt; 0.85</code> or <code>&lt;0.15s</code></td>
+                <td><code>REGENERATE_TTS</code></td>
+              </tr>
+              <tr>
+                <td><code>D4</code></td>
+                <td><code>translation</code></td>
+                <td>Empty target text (empty-translation check; no translation-quality measure in Phase-1)</td>
+                <td><code>RETRANSLATE</code> (alt beam width)</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="tiny-note">
+            <strong>Verified Selective Repair:</strong> Candidate repairs are committed iff total defect flags strictly decrease
+            and CER does not regress; otherwise the prior audio version is preserved and escalated after 2 attempts.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Projects List Table -->
+    <section class="card" id="projects-section">
+      <div class="card-header">
+        <h2>Processed &amp; Queued Projects ({{ projects|length }})</h2>
+        <button class="btn btn-secondary btn-sm" onclick="window.location.reload()">Refresh List</button>
+      </div>
+
+      {% if projects %}
+      <div class="table-responsive">
+        <table class="data-table" id="projects-table">
+          <thead>
+            <tr>
+              <th>Project ID</th>
+              <th>Source File</th>
+              <th>Pair</th>
+              <th>TTS Engine</th>
+              <th>Duration</th>
+              <th>Status</th>
+              <th>Stage</th>
+              <th>Created (UTC)</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in projects %}
+            <tr data-project-id="{{ p.id }}" data-status="{{ p.status }}">
+              <td><code>{{ p.id }}</code></td>
+              <td><strong>{{ p.source_filename }}</strong></td>
+              <td><span class="lang-pair">en &rarr; {{ p.target_lang }}</span></td>
+              <td><code>{{ p.tts_provider }}</code></td>
+              <td>{{ "%.2f"|format(p.duration_s or 0.0) }}s</td>
+              <td>
+                <span class="status-badge status-{{ p.status }}">{{ p.status }}</span>
+              </td>
+              <td><code>{{ p.stage }}</code></td>
+              <td class="muted">{{ p.created_utc }}</td>
+              <td>
+                <a href="/projects/{{ p.id }}" class="btn btn-primary btn-sm">Open Studio &rarr;</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="empty-state">No projects created yet. Upload an audio file above or run <code>python cli.py run</code>.</p>
+      {% endif %}
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById('upload-form');
+    const alertBox = document.getElementById('upload-alert');
+    const submitBtn = document.getElementById('submit-btn');
+    const jobBanner = document.getElementById('active-job-banner');
+    const jobTitle = document.getElementById('active-job-title');
+    const jobStage = document.getElementById('active-job-stage');
+    const jobBar = document.getElementById('active-job-bar');
+    const jobDetail = document.getElementById('active-job-detail');
+
+    const STAGE_PROGRESS = {
+      'INGESTED': 15,
+      'ASR_SEGMENTATION': 35,
+      'TRANSLATION_AND_TTS': 60,
+      'QUALITY_AND_REPAIR': 82,
+      'RECONSTRUCTION_AND_EXPORT': 94,
+      'COMPLETED': 100,
+      'FAILED': 100
+    };
+
+    function showAlert(type, title, message, code) {
+      alertBox.className = `alert alert-${type}`;
+      alertBox.innerHTML = `<strong>${title}</strong> ${code ? '<code>[' + code + ']</code>' : ''}: ${message}`;
+    }
+
+    async function pollProject(projectId) {
+      jobBanner.classList.remove('hidden');
+      const timer = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/projects/${projectId}`);
+          if (!res.ok) return;
+          const data = await res.json();
+          const pct = STAGE_PROGRESS[data.stage] || 25;
+          jobTitle.textContent = `Project ${data.id} (${data.source_filename} → ${data.target_lang})`;
+          jobStage.textContent = `${data.status} • ${data.stage}`;
+          jobStage.className = `status-badge status-${data.status}`;
+          jobBar.style.width = `${pct}%`;
+          jobDetail.textContent = data.error_reason
+            ? `Error: ${data.error_reason}`
+            : `Segments processed: ${(data.segments || []).length} | Stage: ${data.stage}`;
+          if (data.status === 'COMPLETED' || data.status === 'FAILED') {
+            clearInterval(timer);
+            setTimeout(() => {
+              window.location.href = `/projects/${projectId}`;
+            }, 600);
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }, 1000);
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertBox.className = 'alert hidden';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Validating & Uploading...';
+
+      const formData = new FormData(form);
+      try {
+        const res = await fetch('/api/projects', {
+          method: 'POST',
+          body: formData
+        });
+        const payload = await res.json();
+        if (!res.ok) {
+          showAlert(
+            'error',
+            `Upload Rejected (HTTP ${res.status})`,
+            payload.message || 'Validation failed',
+            payload.error_code || 'VALIDATION_ERROR'
+          );
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Validate & Start Pipeline Job';
+          return;
+        }
+        showAlert(
+          'success',
+          `Accepted (HTTP ${res.status})`,
+          `Project ${payload.project_id} queued (${(payload.duration_s || 0).toFixed(2)}s audio).`,
+          'QUEUED'
+        );
+        pollProject(payload.project_id);
+      } catch (err) {
+        showAlert('error', 'Network Error', err.message, 'CLIENT_ERROR');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Validate & Start Pipeline Job';
+      }
+    });
+  </script>
+</body>
+</html>

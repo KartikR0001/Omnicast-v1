@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OMNICAST Review — Project {{ project.id }}</title>
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <a href="/" class="back-link">&larr; All Projects</a>
+        <span class="brand-badge">OMNICAST STUDIO</span>
+        <div>
+          <h1>Project <code>{{ project.id }}</code> &mdash; {{ project.source_filename }}</h1>
+          <p class="subtitle">
+            Language Pair: <strong>en &rarr; {{ project.target_lang }}</strong>
+            &bull; TTS: <code>{{ project.tts_provider }}</code>
+            &bull; Source Duration: <strong>{{ "%.2f"|format(project.duration_s or 0.0) }}s</strong>
+            &bull; Dubbed Duration: <strong>{{ "%.2f"|format(project.out_duration_s or 0.0) }}s</strong>
+          </p>
+        </div>
+      </div>
+      <div class="export-actions" id="export-bar">
+        <span class="status-badge status-{{ project.status }}" id="project-status-badge">
+          {{ project.status }} ({{ project.stage }})
+        </span>
+        {% if project.status == "COMPLETED" %}
+        <a href="/api/projects/{{ project.id }}/export/wav" class="btn btn-primary" id="btn-export-wav">
+          &#11015; Download Dubbed WAV
+        </a>
+        <a href="/api/projects/{{ project.id }}/export/srt" class="btn btn-secondary" id="btn-export-srt">
+          &#11015; Download Aligned SRT
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    {% if project.error_reason %}
+    <div class="alert alert-error">
+      <strong>Pipeline Error:</strong> {{ project.error_reason }}
+    </div>
+    {% endif %}
+
+    <!-- Master Timeline & Waveform Preview -->
+    <section class="card" id="master-timeline-card">
+      <div class="card-header">
+        <h2>Reconstructed Master Output &amp; Quality Summary</h2>
+        <div class="summary-counters">
+          <span class="counter-pill">Total Segments: <strong>{{ project.summary.total_segments }}</strong></span>
+          <span class="counter-pill">Accepted: <strong>{{ project.summary.accepted_segments }}</strong></span>
+          <span class="counter-pill counter-warn">Auto-Repaired: <strong>{{ project.summary.repaired_segments }}</strong></span>
+          <span class="counter-pill counter-danger">Human Review: <strong>{{ project.summary.human_review_segments }}</strong></span>
+        </div>
+      </div>
+
+      {% if project.status == "COMPLETED" %}
+      <div class="master-player-row">
+        <div class="waveform-box">
+          <div class="waveform-label">Reconstructed Dubbed Timeline (16 kHz Mono PCM WAV)</div>
+          <canvas id="master-waveform" width="920" height="84"></canvas>
+          <audio id="master-audio" controls preload="metadata" src="/api/projects/{{ project.id }}/export/wav" class="full-audio"></audio>
+        </div>
+      </div>
+      {% else %}
+      <p class="muted">Project is currently in stage <code>{{ project.stage }}</code>. Page will refresh automatically when finished.</p>
+      {% endif %}
+    </section>
+
+    <!-- Per-Segment Inspection, Defect Flags & Selective Repair Studio -->
+    <section class="card" id="segments-studio-card">
+      <div class="card-header">
+        <h2>Per-Segment Inspection, Defect Flags &amp; Selective Regeneration</h2>
+        <span class="badge">R5 &bull; R6 &bull; R7</span>
+      </div>
+
+      <div class="segment-list" id="segment-list">
+        {% for seg in project.segments %}
+        {% set q = seg.active_quality %}
+        {% set has_flags = q and (q.flags|length > 0) %}
+        <div class="segment-card {% if seg.status == 'HUMAN_REVIEW' %}segment-escalated{% elif has_flags %}segment-flagged{% else %}segment-clean{% endif %}"
+             id="segment-{{ seg.idx }}"
+             data-segment-index="{{ seg.idx }}">
+          <div class="segment-header">
+            <div class="segment-title">
+              <span class="seg-idx">#{{ seg.idx }}</span>
+              <span class="seg-time">{{ "%.2f"|format(seg.start_s) }}s &ndash; {{ "%.2f"|format(seg.end_s) }}s ({{ "%.2f"|format(seg.end_s - seg.start_s) }}s)</span>
+              <span class="version-pill">Active Version: <code>v{{ seg.active_version }}</code></span>
+              <span class="status-badge status-{{ seg.status }}">{{ seg.status }}</span>
+              {% if seg.status == "HUMAN_REVIEW" %}
+              <span class="flag-badge flag-escalated">&#9888; HUMAN_REVIEW ESCALATED</span>
+              {% endif %}
+            </div>
+
+            <div class="flag-badges">
+              {% if q and q.flags %}
+                {% for flg in q.flags %}
+                <span class="flag-badge flag-defect">FLAG: {{ flg }}</span>
+                {% endfor %}
+              {% else %}
+                <span class="flag-badge flag-pass">&#10003; ALL GATES PASSED</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="segment-body">
+            <div class="text-columns">
+              <div class="text-col">
+                <label>Source Transcript (ASR &bull; en)</label>
+                <div class="source-transcript">{{ seg.src_text }}</div>
+              </div>
+              <div class="text-col">
+                <label for="tgt-text-{{ seg.idx }}">Target Translation ({{ project.target_lang }} &bull; Editable)</label>
+                <textarea id="tgt-text-{{ seg.idx }}" rows="2" class="tgt-textarea">{{ seg.tgt_text }}</textarea>
+              </div>
+            </div>
+
+            <div class="audio-metrics-row">
+              <div class="audio-players">
+                <div class="mini-player">
+                  <span>Source Audio:</span>
+                  <audio controls preload="none" src="/api/projects/{{ project.id }}/segments/{{ seg.idx }}/audio/source"></audio>
+                </div>
+                <div class="mini-player">
+                  <span>Target Audio (v{{ seg.active_version }}):</span>
+                  <audio id="target-audio-{{ seg.idx }}" controls preload="metadata" src="/api/projects/{{ project.id }}/segments/{{ seg.idx }}/audio/target?v={{ seg.active_version }}"></audio>
+                </div>
+              </div>
+
+              {% if q %}
+              <div class="metrics-grid">
+                <div class="metric-item">
+                  <span class="metric-label">D1 ASR CER</span>
+                  <span class="metric-val {% if q.cer is not none and q.cer > 0.35 %}val-bad{% else %}val-ok{% endif %}">
+                    {{ "%.3f"|format(q.cer) if q.cer is not none else "NULL" }}
+                  </span>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-label">D2 Duration Ratio</span>
+                  <span class="metric-val {% if q.duration_ratio is not none and (q.duration_ratio < 0.45 or q.duration_ratio > 2.20) %}val-bad{% else %}val-ok{% endif %}">
+                    {{ "%.2f"|format(q.duration_ratio) if q.duration_ratio is not none else "NULL" }}
+                  </span>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-label">D3 ClipFrac</span>
+                  <span class="metric-val {% if q.clipping_fraction is not none and q.clipping_fraction > 0.01 %}val-bad{% else %}val-ok{% endif %}">
+                    {{ "%.4f"|format(q.clipping_fraction) if q.clipping_fraction is not none else "NULL" }}
+                  </span>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-label">D3 SilenceRatio</span>
+                  <span class="metric-val {% if q.silence_ratio is not none and q.silence_ratio > 0.85 %}val-bad{% else %}val-ok{% endif %}">
+                    {{ "%.2f"|format(q.silence_ratio) if q.silence_ratio is not none else "NULL" }}
+                  </span>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-label">BT chrF (not computed in Phase-1)</span>
+                  <span class="metric-val">
+                    {{ "%.1f"|format(q.bt_chrf) if q.bt_chrf is not none else "NULL" }}
+                  </span>
+                </div>
+              </div>
+              {% endif %}
+
+              <div class="segment-controls">
+                <button class="btn btn-secondary btn-sm"
+                        onclick="saveSegmentText('{{ project.id }}', {{ seg.idx }})">
+                  Save Text
+                </button>
+                <button class="btn btn-primary btn-sm"
+                        id="regen-btn-{{ seg.idx }}"
+                        onclick="regenerateSegment('{{ project.id }}', {{ seg.idx }})">
+                  &#8635; Regenerate Segment #{{ seg.idx }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Per-Segment Repair Audit Log -->
+          {% if seg.repair_actions %}
+          <div class="repair-history">
+            <h4>Module-2 Repair Audit Trail ({{ seg.repair_actions|length }} action{{ 's' if seg.repair_actions|length != 1 else '' }})</h4>
+            <table class="compact-table repair-table">
+              <thead>
+                <tr>
+                  <th>Attempt</th>
+                  <th>Policy Action</th>
+                  <th>Candidate Ver</th>
+                  <th>Before (CER / Flags)</th>
+                  <th>After (CER / Flags)</th>
+                  <th>Outcome</th>
+                  <th>Verification Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in seg.repair_actions %}
+                <tr>
+                  <td><code>#{{ r.attempt }}</code></td>
+                  <td><code>{{ r.action }}</code></td>
+                  <td><code>v{{ r.candidate_version }} &rarr; v{{ r.active_version_after }}</code></td>
+                  <td>
+                    CER={{ "%.3f"|format(r.before.cer) if r.before and r.before.cer is not none else "NULL" }}
+                    ({{ r.before.flags | join(", ") if r.before and r.before.flags else "NONE" }})
+                  </td>
+                  <td>
+                    {% if r.after %}
+                    CER={{ "%.3f"|format(r.after.cer) if r.after.cer is not none else "NULL" }}
+                    ({{ r.after.flags | join(", ") if r.after.flags else "NONE" }})
+                    {% else %}
+                    &mdash;
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if r.accepted %}
+                    <span class="status-badge status-COMPLETED">COMMITTED</span>
+                    {% else %}
+                    <span class="status-badge status-FAILED">ROLLED BACK</span>
+                    {% endif %}
+                  </td>
+                  <td class="muted"><code>{{ r.verification_note }}</code> ({{ r.reason }})</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+  </main>
+
+  <script>
+    async function renderMasterWaveform() {
+      const canvas = document.getElementById('master-waveform');
+      const audio = document.getElementById('master-audio');
+      if (!canvas || !audio) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, w, h);
+
+      try {
+        const res = await fetch(audio.src);
+        if (!res.ok) return;
+        const buf = await res.arrayBuffer();
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const decoded = await audioCtx.decodeAudioData(buf);
+        const raw = decoded.getChannelData(0);
+        const step = Math.max(1, Math.floor(raw.length / w));
+        const mid = h / 2;
+
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (let i = 0; i < w; i++) {
+          let min = 1.0;
+          let max = -1.0;
+          const start = i * step;
+          for (let j = 0; j < step && (start + j) < raw.length; j++) {
+            const val = raw[start + j];
+            if (val < min) min = val;
+            if (val > max) max = val;
+          }
+          ctx.moveTo(i, mid + min * (mid - 4));
+          ctx.lineTo(i, mid + max * (mid - 4));
+        }
+        ctx.stroke();
+      } catch (e) {
+        console.warn('Waveform render skipped:', e);
+      }
+    }
+
+    async function saveSegmentText(projectId, segmentIndex) {
+      const textarea = document.getElementById(`tgt-text-${segmentIndex}`);
+      const res = await fetch(`/api/projects/${projectId}/segments/${segmentIndex}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tgt_text: textarea.value })
+      });
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        alert('Failed to update segment text.');
+      }
+    }
+
+    async function regenerateSegment(projectId, segmentIndex) {
+      const btn = document.getElementById(`regen-btn-${segmentIndex}`);
+      const textarea = document.getElementById(`tgt-text-${segmentIndex}`);
+      btn.disabled = true;
+      btn.textContent = 'Regenerating...';
+      try {
+        const res = await fetch(`/api/projects/${projectId}/segments/${segmentIndex}/regenerate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tgt_text: textarea.value })
+        });
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          const err = await res.json();
+          alert(`Regeneration failed: ${err.message || 'Unknown error'}`);
+          btn.disabled = false;
+          btn.textContent = `↻ Regenerate Segment #${segmentIndex}`;
+        }
+      } catch (e) {
+        alert(`Network error: ${e.message}`);
+        btn.disabled = false;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderMasterWaveform();
+      {% if project.status in ("QUEUED", "RUNNING") %}
+      setTimeout(() => window.location.reload(), 2000);
+      {% endif %}
+    });
+  </script>
+</body>
+</html>

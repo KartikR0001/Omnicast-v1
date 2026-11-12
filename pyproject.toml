@@ -1,0 +1,47 @@
+[project]
+name = "omnicast"
+version = "0.0.1"
+description = "OMNICAST: long-form multilingual audio production studio + research on attribution-driven correction"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "numpy",
+  "pandas",
+  "pyarrow",
+  "soundfile",
+  "huggingface_hub",
+  "requests",
+  "tqdm",
+  "pyyaml",
+  "jiwer",
+  "sacrebleu>=2.6.0",
+  "psutil>=7.2.2",
+  "fastapi>=0.162.0",
+  "uvicorn>=0.54.0",
+  "python-multipart>=0.0.33",
+  "jinja2>=3.1.6",
+  "httpx>=0.28.1",
+  "pytest-cov>=7.1.0",
+  "python-docx>=1.2.0",
+  "python-pptx>=1.0.2",
+  "pillow>=13.0.0",
+  "matplotlib>=3.11.2",
+  "playwright>=1.64.1",
+]
+
+[dependency-groups]
+dev = ["pytest", "ruff"]
+ml = [
+    "librosa>=1.0.0",
+    "mlx-whisper>=0.4.3",
+    "sentencepiece>=0.2.3",
+    "torch>=2.15.0",
+    "torchaudio>=2.11.1",
+    "transformers>=5.22.2",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff.lint]
+ignore = ["B008", "BLE001", "PLW1510", "S110", "SIM115"]
+

@@ -1,0 +1,33 @@
+# OMNICAST Model Configuration (R12)
+# Every stage sits behind an interface and is loaded lazily via ai/registry.py.
+
+asr:
+  provider: whisper_mlx
+  repo: mlx-community/whisper-large-v3-turbo
+  fallback_provider: faster_whisper
+  fallback_repo: small
+
+mt:
+  provider: nllb
+  model_id: facebook/nllb-200-distilled-600M
+  device: cpu
+  num_beams: 4
+
+tts:
+  # Default set per Part A TTS speed rule after measuring A4/A5 RTF on M3 Pro (18 GB).
+  # Can be overridden per job or CLI via --tts chatterbox|mms_tts.
+  provider: mms_tts
+  device: cpu
+  chatterbox_device: mps
+  fallback_provider: mms_tts
+
+eval_asr:
+  # Held-out ASR family (Wav2Vec2-CTC) disjoint from in-loop WhisperMLX (CLAUDE.md §6).
+  provider: mms_ctc
+  model_id: facebook/mms-1b-all
+  device: cpu
+
+memory:
+  lazy_load: true
+  unload_inloop_asr_before_tts: true
+

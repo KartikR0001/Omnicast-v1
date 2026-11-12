@@ -1,0 +1,28 @@
+# OMNICAST Module-2 Quality Detection & Repair Thresholds (Part C.4)
+# Calibrated exclusively on FLEURS validation (dev) split — test splits never touched.
+
+detectors:
+  # D1 — Round-trip CER via held-out MMSCTC + Indic-safe normalize().
+  # Chosen from FLEURS validation E0 pilot distribution: separates intelligible synthesis
+  # from phoneme skips, truncations, or severe mispronunciations.
+  cer_max: 0.35
+
+  # D2 — Duration ratio (generated_duration_s / source_duration_s).
+  # Accounts for natural cross-lingual syllable expansion (e.g., EN -> HI/FR in FLEURS dev)
+  # while flagging runaway repetition (> 2.2x) or premature truncation (< 0.45x).
+  duration_ratio_min: 0.45
+  duration_ratio_max: 2.20
+
+  # D3 — Acoustic integrity checks on synthesized waveform.
+  # Peak >= 0.999 fraction above 1% indicates digital clipping; RMS < 1e-4 ratio above 85%
+  # indicates near-silent synthesis; duration < 0.15s indicates empty/collapsed output.
+  clipping_fraction_max: 0.01
+  silence_ratio_max: 0.85
+  min_audio_seconds: 0.15
+
+policy:
+  version: v0_rule_based
+  max_attempts: 2
+  seed_base: 0
+  seed_stride: 101
+

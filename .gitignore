@@ -1,0 +1,23 @@
+# Python / environments
+__pycache__/
+*.pyc
+.venv/
+.tools/
+# Runtime output (created when you run the app)
+storage/
+# Audio and model weights never go in git
+*.wav
+*.mp3
+*.flac
+*.m4a
+*.pt
+*.bin
+*.safetensors
+# Local / secrets
+.env
+.env.*
+.DS_Store
+
+# ...except the small demo clips in samples/
+!samples/
+!samples/*
