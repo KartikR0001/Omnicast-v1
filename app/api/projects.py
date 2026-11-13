@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse
 
+from ai.tts.chatterbox_client import PY as CHATTERBOX_PY
 from app.models import get_project_detail, list_projects
 from app.worker import create_project_from_file, run_pipeline_job
 from pipeline.ingest import MAX_BYTES, MediaValidationError
@@ -59,6 +60,16 @@ async def api_create_project(
             },
         )
 
+    if tts_provider == "chatterbox" and not CHATTERBOX_PY.exists():
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error_code": "CHATTERBOX_NOT_INSTALLED",
+                "message": ("Chatterbox needs its own Python environment at .tools/envs/chatterbox, which is not "
+                            "installed on this computer. Choose MMS-TTS instead."),
+            },
+        )
+
     storage_dir: Path = request.app.state.storage_dir
     storage_dir.mkdir(parents=True, exist_ok=True)
 
@@ -105,6 +116,17 @@ async def api_create_project(
                 "status": "REJECTED",
                 "error_code": exc.code,
                 "message": exc.reason,
+            },
+        )
+    except RuntimeError as exc:
+        # e.g. ffmpeg / ffprobe not installed: report it instead of a bare "Internal Server Error"
+        missing_tool = "not found" in str(exc) and ("ffprobe" in str(exc) or "ffmpeg" in str(exc))
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error_code": "FFMPEG_NOT_FOUND" if missing_tool else "SERVER_ERROR",
+                "message": ("ffmpeg is not installed or not on PATH. Install it (brew install ffmpeg), open a new "
+                            "Terminal and restart the app.") if missing_tool else str(exc),
             },
         )
     finally:

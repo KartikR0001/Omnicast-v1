@@ -38,6 +38,13 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        from pipeline.ingest import _tool_path
+        for tool in ("ffmpeg", "ffprobe"):
+            try:
+                _tool_path(tool)
+            except RuntimeError:
+                print(f"[OMNICAST] WARNING: '{tool}' not found. Uploads will fail until ffmpeg is installed "
+                      "(brew install ffmpeg) and the app is restarted.", flush=True)
         try:
             yield
         finally:

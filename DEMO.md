@@ -67,7 +67,8 @@ uv run python cli.py show <project_id printed above>
 
 | Problem | Fix |
 |---|---|
-| `Required binary 'ffprobe' not found` | `brew install ffmpeg`, then open a new terminal |
+| `Required binary 'ffprobe' not found`, `FFMPEG_NOT_FOUND`, or "Internal Server Error" on upload | ffmpeg is missing: `brew install ffmpeg`, open a new Terminal, restart the app |
+| `CHATTERBOX_NOT_INSTALLED` | Choose **MMS-TTS** as the TTS engine (Chatterbox needs an extra setup that is not included) |
 | Job stuck or very slow on the first run | It is downloading models — run step 2 beforehand |
 | Error about huggingface / offline | You started with `HF_HUB_OFFLINE=1` before the models were downloaded — run step 2 without it first |
 | `Address already in use` | Use another port: `--port 8001` and open http://localhost:8001 |

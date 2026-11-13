@@ -59,8 +59,8 @@
             <div class="form-group">
               <label for="tts-provider">TTS Synthesis Engine</label>
               <select id="tts-provider" name="tts_provider">
-                <option value="mms_tts">MMS-TTS VITS (Fast Local Batch)</option>
-                <option value="chatterbox">Chatterbox Multilingual (Voice Cloning)</option>
+                <option value="mms_tts" selected>MMS-TTS VITS (recommended)</option>
+                <option value="chatterbox">Chatterbox (optional, needs extra setup)</option>
               </select>
             </div>
           </div>
@@ -249,7 +249,10 @@
           method: 'POST',
           body: formData
         });
-        const payload = await res.json();
+        const raw = await res.text();
+        let payload;
+        try { payload = JSON.parse(raw); }
+        catch (_) { payload = { message: `Server error (HTTP ${res.status}). Check the Terminal running the app for details.`, error_code: 'SERVER_ERROR' }; }
         if (!res.ok) {
           showAlert(
             'error',
