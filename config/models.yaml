@@ -7,7 +7,7 @@ asr:
   repo: mlx-community/whisper-large-v3-turbo
   fallback_provider: faster_whisper
   fallback_repo: small        # faster-whisper model: tiny | base | small | medium | large-v3 | large-v3-turbo
-  fallback_device: auto       # auto = NVIDIA GPU if available, otherwise CPU
+  fallback_device: cpu        # cpu (safe default) | auto = NVIDIA GPU if CUDA 12 + cuDNN are installed
 
 mt:
   provider: nllb

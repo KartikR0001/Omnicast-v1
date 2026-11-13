@@ -15,9 +15,7 @@ DEFAULT_MODEL = "small"
 
 
 class FasterWhisper:
-    def __init__(self, model: str = DEFAULT_MODEL, device: str = "auto", compute_type: str = "auto"):
-        from faster_whisper import WhisperModel
-
+    def __init__(self, model: str = DEFAULT_MODEL, device: str = "cpu", compute_type: str = "auto"):
         if device == "auto":
             device = "cpu"
             try:
@@ -26,19 +24,38 @@ class FasterWhisper:
                     device = "cuda"
             except Exception:
                 pass
+        self.model_name = model
+        self._compute_type = compute_type
+        self._load(device)
+
+    def _load(self, device: str) -> None:
+        from faster_whisper import WhisperModel
+
+        compute_type = self._compute_type
         if compute_type == "auto":
             compute_type = "float16" if device == "cuda" else "int8"
-        self.model_name = model
         self.device = device
-        self.model = WhisperModel(model, device=device, compute_type=compute_type)
+        self.model = WhisperModel(self.model_name, device=device, compute_type=compute_type)
+
+    def _run(self, audio: np.ndarray, language: str | None, word_timestamps: bool):
+        seg_iter, info = self.model.transcribe(
+            audio, language=language, word_timestamps=word_timestamps, temperature=0.0,
+            condition_on_previous_text=False, beam_size=5, vad_filter=False,
+        )
+        return list(seg_iter), info  # the generator does the actual decoding
 
     def transcribe(self, audio_16k: np.ndarray, language: str | None = None, word_timestamps: bool = False) -> ComponentResult:
         t0 = time.perf_counter()
-        seg_iter, info = self.model.transcribe(
-            audio_16k.astype(np.float32), language=language, word_timestamps=word_timestamps, temperature=0.0,
-            condition_on_previous_text=False, beam_size=5, vad_filter=False,
-        )
-        segs = list(seg_iter)  # the generator does the actual decoding
+        audio = np.ascontiguousarray(audio_16k, dtype=np.float32)
+        try:
+            segs, info = self._run(audio, language, word_timestamps)
+        except (RuntimeError, OSError) as exc:
+            if self.device == "cpu":
+                raise
+            # GPU present but CUDA/cuDNN libraries missing (common on Windows): retry on the CPU
+            print(f"[OMNICAST] GPU speech-to-text failed ({exc}); switching to CPU.", flush=True)
+            self._load("cpu")
+            segs, info = self._run(audio, language, word_timestamps)
         dt = time.perf_counter() - t0
         text = "".join(s.text for s in segs).strip()
         extra = {

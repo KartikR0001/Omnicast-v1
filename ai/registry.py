@@ -7,11 +7,14 @@ memory budget on Apple Silicon.
 from __future__ import annotations
 
 import gc
+import os
 import threading
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")  # harmless on Windows; hide the noisy warning
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = ROOT / "config/models.yaml"
@@ -54,7 +57,7 @@ class ModelRegistry:
                     # Windows, Linux, Intel Macs: faster-whisper (CPU, or NVIDIA GPU if present)
                     from ai.asr.faster_whisper_asr import FasterWhisper
                     self._asr = FasterWhisper(model=asr_cfg.get("fallback_repo", "small"),
-                                              device=asr_cfg.get("fallback_device", "auto"))
+                                              device=asr_cfg.get("fallback_device", "cpu"))
                 print(f"[OMNICAST] Speech-to-text engine: {'mlx-whisper' if use_mlx else 'faster-whisper'}", flush=True)
                 self.load_counts["asr"] += 1
             return self._asr
