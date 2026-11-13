@@ -71,6 +71,8 @@ HF_HUB_OFFLINE=1 uv run python cli.py run samples/short_satellite_7s.wav --tgt h
 uv run python cli.py show <project_id printed above>
 ```
 
+**Even more test files:** `samples/more_clean/` (20 clean clips: 15 FLEURS sentences with reference Hindi/French, 5 LibriSpeech speakers) and `samples/stress_test/` (13 difficult cases: noise, quiet/loud, fast/slow speech, phone quality, music, echo, long silences, two speakers, an 8-minute recording, low-bitrate MP3). References for all of them are in `samples/test_sets.csv`.
+
 **More test files:** `samples/demo_set/` has 12 valid clips (4 s to 2 min, WAV/FLAC/MP3/M4A, numbers, names, several speakers) and 4 invalid files, plus `demo_set.csv` with the reference English, Hindi and French. See `samples/demo_set/README.md` for a suggested order.
 
 ## 5. Questions the guide may ask
