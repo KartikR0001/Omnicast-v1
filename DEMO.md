@@ -4,32 +4,49 @@ Total demo time: about 10 minutes. Do steps 1–2 the day before.
 
 ## 1. Set up (once, the day before)
 
-Needs an **Apple Silicon Mac** (M1 or later), Python 3.12, [uv](https://docs.astral.sh/uv/) and ffmpeg.
+Works on an **Apple Silicon Mac** or a **Windows 10/11** laptop (16 GB RAM recommended).
 
+**Mac (Terminal):**
 ```bash
-brew install ffmpeg            # if not installed
-cd omnicast-app
+brew install ffmpeg            # needs Homebrew: https://brew.sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
+cd Omnicast-v1
+uv sync --group ml
+```
+
+**Windows (PowerShell):**
+```powershell
+winget install --id Git.Git -e
+winget install --id Gyan.FFmpeg -e
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+# open a NEW PowerShell window, then:
+cd Omnicast-v1
 uv sync --group ml
 ```
 
 ## 2. Download the models before the review (important)
 
-The first run downloads about 10 GB of models, which can take a long time on college Wi-Fi. Do it at home:
+The first run downloads about 10 GB of models — do it at home, not on college Wi-Fi:
 
 ```bash
 uv run python cli.py run samples/short_ocean_4s.wav --tgt hi
 uv run python cli.py run samples/short_ocean_4s.wav --tgt fr
 ```
-
-Both should end with status `COMPLETED`. After this, the app works **without internet**.
+(On Windows write `samples\short_ocean_4s.wav`.) Both should end with `COMPLETED`. On Windows the speech-to-text step uses faster-whisper on the CPU, so jobs take longer than on a Mac — time your demo clips in advance.
 
 ## 3. On the review day
 
 Start the web app (offline mode, so nothing is downloaded during the demo):
 
+Mac:
 ```bash
-cd omnicast-app
+cd Omnicast-v1
 HF_HUB_OFFLINE=1 uv run uvicorn app.main:app --port 8000
+```
+Windows (PowerShell):
+```powershell
+cd Omnicast-v1
+$env:HF_HUB_OFFLINE=1; uv run uvicorn app.main:app --port 8000
 ```
 
 Open http://localhost:8000. Keep this terminal visible: it shows each stage as the job runs.
@@ -72,5 +89,6 @@ uv run python cli.py show <project_id printed above>
 | Job stuck or very slow on the first run | It is downloading models — run step 2 beforehand |
 | Error about huggingface / offline | You started with `HF_HUB_OFFLINE=1` before the models were downloaded — run step 2 without it first |
 | `Address already in use` | Use another port: `--port 8001` and open http://localhost:8001 |
-| Not an Apple Silicon Mac | The speech-to-text model needs MLX (Apple Silicon); run the demo on an M-series Mac |
+| `winget` not found (Windows) | Install "App Installer" from the Microsoft Store, or download ffmpeg from https://www.gyan.dev/ffmpeg/builds/ and add its `bin` folder to PATH |
+| Windows: job is slow | Normal on CPU. Use the short clips for the live demo, or set `fallback_repo: base` in `config/models.yaml` for faster (less accurate) speech-to-text |
 | Want a clean start | Stop the server and delete the `storage/` folder |

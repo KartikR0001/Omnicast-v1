@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -43,8 +44,9 @@ def create_app(
             try:
                 _tool_path(tool)
             except RuntimeError:
+                hint = "winget install --id Gyan.FFmpeg -e" if sys.platform == "win32" else "brew install ffmpeg"
                 print(f"[OMNICAST] WARNING: '{tool}' not found. Uploads will fail until ffmpeg is installed "
-                      "(brew install ffmpeg) and the app is restarted.", flush=True)
+                      f"({hint}) and the app is restarted.", flush=True)
         try:
             yield
         finally:

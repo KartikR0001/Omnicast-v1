@@ -2,10 +2,12 @@
 # Every stage sits behind an interface and is loaded lazily via ai/registry.py.
 
 asr:
-  provider: whisper_mlx
+  # auto = mlx-whisper on Apple Silicon Macs, faster-whisper everywhere else (Windows, Linux, Intel Mac)
+  provider: auto
   repo: mlx-community/whisper-large-v3-turbo
   fallback_provider: faster_whisper
-  fallback_repo: small
+  fallback_repo: small        # faster-whisper model: tiny | base | small | medium | large-v3 | large-v3-turbo
+  fallback_device: auto       # auto = NVIDIA GPU if available, otherwise CPU
 
 mt:
   provider: nllb

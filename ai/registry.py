@@ -17,10 +17,22 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = ROOT / "config/models.yaml"
 
 
+def _mlx_available() -> bool:
+    """True only on Apple Silicon Macs with mlx-whisper installed."""
+    import platform
+    if platform.system() != "Darwin" or platform.machine() != "arm64":
+        return False
+    try:
+        import mlx_whisper  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
 class ModelRegistry:
     def __init__(self, config_path: Path | str = DEFAULT_CONFIG, tts_override: str | None = None):
         self.config_path = Path(config_path)
-        self.cfg: dict[str, Any] = yaml.safe_load(self.config_path.read_text()) if self.config_path.exists() else {}
+        self.cfg: dict[str, Any] = yaml.safe_load(self.config_path.read_text(encoding="utf-8")) if self.config_path.exists() else {}
         self.tts_override = tts_override
         self._lock = threading.RLock()
         self._asr = None
@@ -33,9 +45,17 @@ class ModelRegistry:
         with self._lock:
             if self._asr is None:
                 asr_cfg = self.cfg.get("asr", {})
-                repo = asr_cfg.get("repo", "mlx-community/whisper-large-v3-turbo")
-                from ai.asr.whisper_mlx import WhisperMLX
-                self._asr = WhisperMLX(repo=repo)
+                provider = asr_cfg.get("provider", "auto")
+                use_mlx = provider == "whisper_mlx" or (provider == "auto" and _mlx_available())
+                if use_mlx:
+                    from ai.asr.whisper_mlx import WhisperMLX
+                    self._asr = WhisperMLX(repo=asr_cfg.get("repo", "mlx-community/whisper-large-v3-turbo"))
+                else:
+                    # Windows, Linux, Intel Macs: faster-whisper (CPU, or NVIDIA GPU if present)
+                    from ai.asr.faster_whisper_asr import FasterWhisper
+                    self._asr = FasterWhisper(model=asr_cfg.get("fallback_repo", "small"),
+                                              device=asr_cfg.get("fallback_device", "auto"))
+                print(f"[OMNICAST] Speech-to-text engine: {'mlx-whisper' if use_mlx else 'faster-whisper'}", flush=True)
                 self.load_counts["asr"] += 1
             return self._asr
 

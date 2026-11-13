@@ -22,7 +22,7 @@ DEFAULT_QUALITY_CFG = ROOT / "config/quality.yaml"
 
 def load_quality_config(path: Path | str = DEFAULT_QUALITY_CFG) -> dict[str, Any]:
     p = Path(path)
-    return yaml.safe_load(p.read_text()) if p.exists() else {}
+    return yaml.safe_load(p.read_text(encoding="utf-8")) if p.exists() else {}
 
 
 @dataclass

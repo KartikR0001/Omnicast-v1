@@ -8,7 +8,8 @@ from pathlib import Path
 from ai.base import ComponentResult
 
 ROOT = Path(__file__).resolve().parents[2]
-PY = ROOT / ".tools/envs/chatterbox/bin/python"
+_ENV = ROOT / ".tools/envs/chatterbox"
+PY = _ENV / ("Scripts/python.exe" if (_ENV / "Scripts/python.exe").exists() else "bin/python")
 WORKER = Path(__file__).with_name("chatterbox_worker.py")
 MODEL_ID = "ResembleAI/chatterbox:multilingual (chatterbox-tts 0.1.7)"
 

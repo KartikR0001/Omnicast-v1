@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ from app.worker import create_project_from_file, run_pipeline_job
 from pipeline.ingest import MAX_BYTES, MediaValidationError
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
+_FFMPEG_HINT = "winget install --id Gyan.FFmpeg -e" if sys.platform == "win32" else "brew install ffmpeg"
 
 
 @router.get("")
@@ -125,8 +127,8 @@ async def api_create_project(
             status_code=500,
             content={
                 "error_code": "FFMPEG_NOT_FOUND" if missing_tool else "SERVER_ERROR",
-                "message": ("ffmpeg is not installed or not on PATH. Install it (brew install ffmpeg), open a new "
-                            "Terminal and restart the app.") if missing_tool else str(exc),
+                "message": ("ffmpeg is not installed or not on PATH. Install it (" + _FFMPEG_HINT + "), open a new "
+                            "terminal window and restart the app.") if missing_tool else str(exc),
             },
         )
     finally:
